@@ -51,10 +51,8 @@ import_log_files () {
    
    pushd   $TMP_LOG_DIR/${HOST_ADDR}
    
-   debug_log "${REMOTE_LOGIN} ${DBHOST_SSH_USER}@${HOST_ADDR} \"ls -l ${PG_LOG_DIR}/${LOG_FILE_NAME}\" | wc -l"
    number_of_files_in_server=`${REMOTE_LOGIN} ${DBHOST_SSH_USER}@${HOST_ADDR} "ls -l ${PG_LOG_DIR}/${LOG_FILE_NAME}" | wc -l`
    debug_log "number_of_files_in_server=${number_of_files_in_server}"
-   debug_log "ls -l $TMP_LOG_DIR/${HOST_ADDR}/${LOG_FILE_NAME} | wc -l"
    number_of_files_in_imported=`ls -l $TMP_LOG_DIR/${HOST_ADDR}/${LOG_FILE_NAME} | wc -l`
    debug_log "number_of_files_in_imported=${number_of_files_in_imported}"
    
@@ -95,6 +93,9 @@ generate_html () {
   rm ${HOST_TMP_COMMAND_FILE}
   HTMLFILE=${OUTPUT_DIR}/${OUTPUT_FILE_NAME}  
    
+  debug_log "Cleaup postgresql logs"   
+  debug_log "rm -f $TMP_LOG_DIR/${HOST_ADDR}/postgresql-${DT}*.log"
+  rm -f $TMP_LOG_DIR/${HOST_ADDR}/postgresql-${DT}*.log
 }
 
 
@@ -114,19 +115,6 @@ push_html_files_in_web () {
    RETURN=1
 }
 
-
-cleanup_log_files () {
-  debug_log "Cleaup postgresql logs"   
-  cmd="find $TMP_LOG_DIR/${HOST_ADDR}/* -mtime  ${LOG_FILE_RETENTION} -exec  rm {} \;"
-  debug_log "$cmd"
-  find $TMP_LOG_DIR/${HOST_ADDR}/* -mtime  ${LOG_FILE_RETENTION} -exec  rm {} \;
-  if [ $? -ne 0 ];
-  then   
-      echo -e "!!CRITICAL!! Failed to cleanup log files for  ${HOST_ADDR}"
-      RETURN=0
-   fi   
-   RETURN=1
-}
 
 cleanup_html_files () {
   REMOTE_COMMAND="\"find ${HOST_WEBSERVER_DIR}/* -mtime  ${HTML_RETENTION} -exec  rm {} \;\" " 
@@ -187,9 +175,7 @@ debug_log "LOG_FILE_NAME=${LOG_FILE_NAME}"
 create_directory $TMP_LOG_DIR
 create_directory $TMP_HTML_DIR
 
-
-
-cat $SERVERS_FILE | sort -d | while read each_server
+cat $SERVERS_FILE | while read each_server
 do
    RETURN=1
    debug_log "\nLine read= $each_server"
@@ -212,7 +198,6 @@ do
    
    HTML_RETENTION=`echo $each_server | cut -d ':' -f4`
    debug_log "HTML_RETENTION=$HTML_RETENTION"
-   LOG_FILE_RETENTION=${HTML_RETENTION}
    
    MAIL_LIST=`echo $each_server | cut -d ':' -f5`
    debug_log "MAIL_LIST=$MAIL_LIST"
@@ -284,20 +269,13 @@ do
      continue
    fi
    
-   cleanup_log_files 
-   if [ ${RETURN} -eq 0 ];
-   then
-     continue
-   fi
-
-   
    cleanup_html_files
    if [ ${RETURN} -eq 0 ];
    then
      continue
    fi
    
-   #send_mail_with_attach   
+   send_mail_with_attach   
    if [ ${RETURN} -eq 0 ];
    then
      continue
